@@ -25,9 +25,28 @@ app.use(cookieSession({
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
+const SESSION_HMAC_SECRET = process.env.SESSION_SECRET || 'runtune-dev-secret';
+
+function signState(raw) {
+  const hmac = crypto.createHmac('sha256', SESSION_HMAC_SECRET).update(raw).digest('hex');
+  return `${raw}.${hmac}`;
+}
+
+function verifyState(signed) {
+  const dot = signed.lastIndexOf('.');
+  if (dot === -1) return false;
+  const raw = signed.slice(0, dot);
+  const hmac = signed.slice(dot + 1);
+  const expected = crypto.createHmac('sha256', SESSION_HMAC_SECRET).update(raw).digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expected, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
 app.get('/auth/login', (req, res) => {
-  const state = crypto.randomBytes(16).toString('hex');
-  req.session.oauthState = state;
+  const state = signState(crypto.randomBytes(16).toString('hex'));
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CLIENT_ID,
@@ -40,7 +59,7 @@ app.get('/auth/login', (req, res) => {
 
 app.get('/auth/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  if (error || state !== req.session.oauthState) {
+  if (error || !verifyState(state)) {
     return res.redirect('/?error=auth_failed');
   }
   try {
