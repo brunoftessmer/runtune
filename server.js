@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
+const cookieSession = require('cookie-session');
 const axios = require('axios');
 const crypto = require('crypto');
 const path = require('path');
@@ -15,11 +15,12 @@ const SCOPES = 'user-top-read user-read-private user-library-read';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({
+app.use(cookieSession({
+  name: 'runtune',
   secret: process.env.SESSION_SECRET || 'runtune-dev-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+  maxAge: 24 * 60 * 60 * 1000,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax'
 }));
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ app.get('/auth/status', (req, res) => {
 });
 
 app.get('/auth/logout', (req, res) => {
-  req.session.destroy();
+  req.session = null;
   res.redirect('/');
 });
 
