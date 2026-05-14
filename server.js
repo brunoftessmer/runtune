@@ -59,10 +59,8 @@ app.get('/auth/login', (req, res) => {
 
 app.get('/auth/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  console.log('[callback] error:', error, '| stateOk:', verifyState(state || ''));
-  if (error || !verifyState(state || '')) {
-    return res.redirect('/?error=auth_failed');
-  }
+  if (error) return res.redirect(`/?error=spotify_${error}`);
+  if (!verifyState(state || '')) return res.redirect('/?error=state_mismatch');
   try {
     const tokenRes = await axios.post(
       'https://accounts.spotify.com/api/token',
@@ -83,8 +81,8 @@ app.get('/auth/callback', async (req, res) => {
     req.session.tokenExpiry = Date.now() + tokenRes.data.expires_in * 1000;
     res.redirect('/app');
   } catch (err) {
-    console.error('[callback] token exchange failed:', err?.response?.data || err.message);
-    res.redirect('/?error=token_failed');
+    const detail = err?.response?.data?.error || err.message || 'unknown';
+    res.redirect(`/?error=token_${detail}`);
   }
 });
 
