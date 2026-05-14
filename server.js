@@ -59,7 +59,8 @@ app.get('/auth/login', (req, res) => {
 
 app.get('/auth/callback', async (req, res) => {
   const { code, state, error } = req.query;
-  if (error || !verifyState(state)) {
+  console.log('[callback] error:', error, '| stateOk:', verifyState(state || ''));
+  if (error || !verifyState(state || '')) {
     return res.redirect('/?error=auth_failed');
   }
   try {
@@ -81,7 +82,8 @@ app.get('/auth/callback', async (req, res) => {
     req.session.refreshToken = tokenRes.data.refresh_token;
     req.session.tokenExpiry = Date.now() + tokenRes.data.expires_in * 1000;
     res.redirect('/app');
-  } catch {
+  } catch (err) {
+    console.error('[callback] token exchange failed:', err?.response?.data || err.message);
     res.redirect('/?error=token_failed');
   }
 });
